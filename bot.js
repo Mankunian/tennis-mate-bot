@@ -50,7 +50,7 @@ bot.on('callback_query', (callbackQuery) => {
 
     const chatId = message.chat.id;
     const city = callbackQuery.data;
-
+    userStates.city = city;
     // Acknowledge the callback query
     bot.answerCallbackQuery(callbackQuery.id)
         .then(() => {
@@ -66,7 +66,8 @@ bot.on('callback_query', (callbackQuery) => {
                         one_time_keyboard: true
                     }
                 });
-            } else if (userStates[chatId] === 'finding_coach') {
+            }
+            else if (userStates[chatId] === 'finding_coach') {
                 bot.sendMessage(chatId, `Searching for tennis coaches in ${city}...`);
                 bot.sendMessage(chatId, "Please share your phone number:", {
                     reply_markup: {
@@ -77,7 +78,6 @@ bot.on('callback_query', (callbackQuery) => {
                     }
                 });
             }
-
             // Set user state to 'awaiting_phone'
             userStates[chatId] = 'awaiting_phone';
         })
@@ -91,9 +91,10 @@ bot.on('contact', (msg) => {
     if (msg && msg.chat && msg.chat.id && msg.contact && msg.contact.phone_number) {
         const chatId = msg.chat.id;
         const phoneNumber = msg.contact.phone_number;
+        const city = userStates.city;
 
-        console.log(msg.from.username);
-        const url = `https://www.google.com?phone=${phoneNumber}`;
+
+        const url = `https://www.google.com?phone=${phoneNumber}&city=${city}`;
         bot.sendMessage(chatId, `Thank you for sharing your phone number: ${phoneNumber}`);
         bot.sendMessage(chatId, `You can find more information here: [Your Web Page Link](${url})`, {
             parse_mode: 'Markdown'
