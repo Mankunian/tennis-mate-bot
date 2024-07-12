@@ -92,7 +92,7 @@ bot.on('contact', (msg) => {
         const chatId = msg.chat.id;
         const phoneNumber = msg.contact.phone_number;
 
-        console.log(msg);
+        console.log(msg.from.username);
         const url = `https://www.google.com?phone=${phoneNumber}`;
         bot.sendMessage(chatId, `Thank you for sharing your phone number: ${phoneNumber}`);
         bot.sendMessage(chatId, `You can find more information here: [Your Web Page Link](${url})`, {
