@@ -1,4 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
+const fs = require('fs');
 
 // Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
 const token = '7323849851:AAFV3onhUFo8esiB-e8r4YVgwnYKldw-D5U';
@@ -6,7 +7,7 @@ const bot = new TelegramBot(token, {polling: true});
 
 // Массив с номерами телефонов, зарегистрированных в системе
 const registeredPhoneNumbers = ['+77471117328', '+0987654321']; // добавьте сюда номера в формате +КОД_СТРАНЫ
-const regions = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Нижний Новгород'];
+const regions = ['Астана', 'Алматы', 'Шымкент'];
 const roles = ['Тренер', 'Игрок'];
 const genders = ['Мужской', 'Женский'];
 const ntrpLevels = [
@@ -79,12 +80,17 @@ bot.onText(/\/findpartner/, (msg) => {
 bot.onText(/\/info/, async (msg) => {
     if (msg && msg.chat && msg.chat.id) {
         const chatId = msg.chat.id;
-        await bot.sendMessage(chatId, `Ваш номер ${userStates.phoneNumber}`)
-        await bot.sendMessage(chatId, `Ваш регион ${userStates.region}`)
-        await bot.sendMessage(chatId, `Ваша роль ${userStates.role}`)
-        await bot.sendMessage(chatId, `Ваш пол ${userStates.gender}`)
+        const message = `
+            Ваш номер: ${userStates.phoneNumber || 'не указан'}
+            Ваш регион: ${userStates.region || 'не указан'}
+            Ваша роль: ${userStates.role || 'не указана'}
+            Ваш пол: ${userStates.gender || 'не указан'}
+            Ваш уровень: ${userStates.level || 'не указан'}
+        `;
+        await bot.sendMessage(chatId, message.trim());
     }
-})
+});
+
 
 bot.on('callback_query', (callbackQuery) => {
     const message = callbackQuery.message;
@@ -141,8 +147,20 @@ bot.on('contact', async (msg) => {
 
     // Проверяем, есть ли номер в массиве
     if (registeredPhoneNumbers.includes(phoneNumber)) {
-        await bot.sendMessage(chatId, "Ваш номер найден в системе. Поиск партнера начат.");
+        await bot.sendMessage(chatId, "Ваш номер найден в системе. Поиск партнера начат...");
         // Здесь можно добавить дальнейшую логику для поиска партнера
+        await bot.sendMessage(chatId, "Перейдите на веб-страницу:", {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "Перейти на сайт",
+                            url: `https://kwonka.netlify.app/main?phone=${phoneNumber}`
+                        }
+                    ]
+                ]
+            }
+        });
     } else {
         await bot.sendMessage(chatId, "Ваш номер не был найден в нашей системе, пожалуйста, пройдите небольшую регистрацию.");
         // await bot.sendMessage(chatId, `Ваш номер: ${phoneNumber}`);
@@ -212,9 +230,47 @@ bot.on('message', async (msg) => {
 
         // Устанавливаем состояние для выбора роли
         userStates[chatId].state = 'choosing_level';
-    } else if (userState && userState.state === 'choosing_level' && ntrpLevels.includes(text)) {
+    }
+    else if (
+        userState && userState.state === 'choosing_level' &&
+        ntrpLevels.includes(text)) {
         await bot.sendMessage(chatId, `Вы выбрали уровень: ${text}. Спасибо за регистрацию!`);
         userStates.level = text;
+
+
+        const phoneNumber = userStates.phoneNumber;
+        const level = userStates.level;
+        const region = userStates.region;
+        const role = userStates.role;
+        const gender = userStates.gender;
+
+        // Собираем объект с нужными параметрами
+        const params = {phoneNumber, level, region, role, gender};
+
+        function saveToJSON(data, fileName = 'userData.json') {
+            fs.writeFileSync(fileName, JSON.stringify(data, null, 2), 'utf8');
+            console.log(`Данные сохранены в файл ${fileName}`)
+        }
+
+        // Сохраняем данные
+        saveToJSON(params);
+
+        // Преобразуем объект в строку JSON и кодируем в base64
+        const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');
+
+        // Отправляем кнопку с ссылкой на веб-страницу
+        await bot.sendMessage(chatId, "Для завершения регистрации, перейдите на веб-страницу:", {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "Перейти на сайт",
+                            url: `https://kwonka.netlify.app/main?phone=${phoneNumber}`
+                        }
+                    ]
+                ]
+            }
+        });
         // Сбрасываем состояние пользователя после завершения регистрации
         userStates[chatId] = null;
     }
