@@ -1,5 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
+const path = require('path');
+
 
 // Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
 const token = '7323849851:AAFV3onhUFo8esiB-e8r4YVgwnYKldw-D5U';
@@ -46,19 +48,109 @@ bot.setMyCommands([
 });
 
 const userStates = {}; // Store user states
+const userDataFile = path.resolve(__dirname, 'userData.json');
 
-// Define command handlers
-// Обработка команды /start
-bot.onText(/\/start/, (msg) => {
+// Проверка номера телефона в JSON-файле
+async function isPhoneNumberRegistered(phoneNumber) {
+    if (fs.existsSync(userDataFile)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(userDataFile, 'utf8'));
+            return Object.values(data).some(user => user.phoneNumber === phoneNumber);
+        } catch (error) {
+            console.error('Ошибка при чтении JSON-файла:', error);
+            return false;
+        }
+    }
+    return false;
+}
+
+// Проверка пользователя в JSON-файле
+function checkUserInJSON(chatId) {
+    if (fs.existsSync(userDataFile)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(userDataFile, 'utf8'));
+            return data[chatId] || null; // Возвращает данные пользователя или null
+        } catch (error) {
+            console.error('Ошибка чтения JSON-файла:', error);
+            return null;
+        }
+    } else {
+        console.log('Файл данных пользователей отсутствует.');
+        return null;
+    }
+}
+
+
+// bot.onText(/\/start/, async (msg) => {
+//     if (msg && msg.chat && msg.chat.id) {
+//         const chatId = msg.chat.id;
+//         const phoneNumber = userStates[chatId]?.phoneNumber;
+//
+//         if (!phoneNumber) {
+//             await bot.sendMessage(chatId, "Ваш номер телефона отсутствует. Пожалуйста, отправьте номер для проверки.");
+//             userStates[chatId] = { state: 'awaiting_phone' };
+//             return;
+//         }
+//
+//         // Проверяем, зарегистрирован ли номер
+//         if (await isPhoneNumberRegistered(phoneNumber)) {
+//             await bot.sendMessage(chatId, "Ваш номер найден в системе. Поиск партнера начат...");
+//             await bot.sendMessage(chatId, "Перейдите на веб-страницу:", {
+//                 reply_markup: {
+//                     inline_keyboard: [
+//                         [
+//                             {
+//                                 text: "Перейти на сайт",
+//                                 url: `https://kwonka.netlify.app/main?phone=${phoneNumber}`
+//                             }
+//                         ]
+//                     ]
+//                 }
+//             });
+//         }
+//         else {
+//             await bot.sendMessage(chatId, "Ваш номер не был найден в нашей системе, пожалуйста, пройдите небольшую регистрацию.");
+//
+//             // Устанавливаем состояние выбора региона
+//             userStates[chatId] = { state: 'choosing_region' };
+//
+//             // Отправка списка регионов на выбор
+//             await bot.sendMessage(chatId, "Пожалуйста, выберите свой регион:", {
+//                 reply_markup: {
+//                     keyboard: regions.map(region => [{ text: region }]),
+//                     one_time_keyboard: true,
+//                     resize_keyboard: true
+//                 }
+//             });
+//         }
+//     }
+// });
+
+bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, "Привет! Я помогу вам найти партнёров и тренеров по теннису, а также помочь с покупкой и продажей оборудования. Вот что я могу сделать:\n\n" +
-        "/findpartner - найти партнёра по теннису\n" +
-        "/findcoach - найти тренера по теннису\n" +
-        "/buyequipment - купить теннисное оборудование\n" +
-        "/sellequipment - продать теннисное оборудование\n" +
-        "/info - информация о вашем номере\n\n" +
-        "Начните с одной из команд или просто спросите, если нужна помощь!");
+    const userName = msg.from.first_name || "друг";
+
+    const welcomeMessage = `
+Добро пожаловать, ${userName}! 🎾
+Наш бот поможет вам:  
+- Найти партнера для игры в теннис;  
+- Подобрать тренера для тренировок;  
+- Найти место для игры;  
+- Купить или продать теннисное оборудование.  
+
+Доступные команды:  
+- /find_partner — Найти партнера  
+- /find_coach — Найти тренера  
+- /find_court — Найти корт  
+- /buy_sell — Купить/продать оборудование  
+- /help — Справка по командам  
+
+Начнем? 😊
+    `;
+
+    await bot.sendMessage(chatId, welcomeMessage);
 });
+
 
 
 bot.onText(/\/findpartner/, (msg) => {
@@ -80,14 +172,48 @@ bot.onText(/\/findpartner/, (msg) => {
 bot.onText(/\/info/, async (msg) => {
     if (msg && msg.chat && msg.chat.id) {
         const chatId = msg.chat.id;
-        const message = `
+        if (userStates && Object.keys(userStates).length > 0) {
+            const message = `
             Ваш номер: ${userStates.phoneNumber || 'не указан'}
             Ваш регион: ${userStates.region || 'не указан'}
             Ваша роль: ${userStates.role || 'не указана'}
             Ваш пол: ${userStates.gender || 'не указан'}
-            Ваш уровень: ${userStates.level || 'не указан'}
-        `;
-        await bot.sendMessage(chatId, message.trim());
+            Ваш уровень: ${userStates.level || 'не указан'}`;
+            await bot.sendMessage(chatId, message.trim());
+        } else {
+            // call function to share phoneNumber and check it in json file,
+            // if exist, await bot.sendMessage with data
+            // Если данных в памяти нет, проверяем JSON-файл
+            const userData = checkUserInJSON(chatId);
+
+            if (userData) {
+                // Если пользователь найден в файле, загружаем данные
+                userStates[chatId] = userData; // Добавляем в память
+                const message = `
+                Ваш номер: ${userData.phoneNumber || 'не указан'}
+                Ваш регион: ${userData.region || 'не указан'}
+                Ваша роль: ${userData.role || 'не указана'}
+                Ваш пол: ${userData.gender || 'не указан'}
+                Ваш уровень: ${userData.level || 'не указан'}
+                `;
+                await bot.sendMessage(chatId, message.trim());
+            } else {
+                // Если пользователя нет в файле, запрашиваем номер телефона
+                // await bot.sendMessage(chatId, 'Ваши данные не найдены. Пожалуйста, введите номер телефона для регистрации:');
+                await bot.sendMessage(chatId, "Пожалуйста, поделитесь своим номером телефона:", {
+                    reply_markup: {
+                        keyboard: [
+                            [{text: "Поделитесь моим номером телефона", request_contact: true}],
+                        ],
+                        one_time_keyboard: true
+                    }
+                });
+
+                // Устанавливаем состояние для ожидания номера телефона
+                userStates[chatId] = { state: 'awaiting_phone' };
+            }
+        }
+
     }
 });
 
@@ -161,7 +287,8 @@ bot.on('contact', async (msg) => {
                 ]
             }
         });
-    } else {
+    }
+    else {
         await bot.sendMessage(chatId, "Ваш номер не был найден в нашей системе, пожалуйста, пройдите небольшую регистрацию.");
         // await bot.sendMessage(chatId, `Ваш номер: ${phoneNumber}`);
 
