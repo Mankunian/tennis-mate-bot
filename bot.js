@@ -130,7 +130,8 @@ bot.onText(/\/my_profile/, async (msg) => {
 Username: ${userName}
 Phone: ${phone}
 First Name: ${storedFirstName || firstName}`);
-    } else {
+    }
+    else {
         // If no user found, prompt to share the phone number
         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
             reply_markup: {
