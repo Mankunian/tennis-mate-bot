@@ -3,7 +3,6 @@ const fs = require('fs');
 const path = require('path');
 
 
-
 // Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
 const token = '7323849851:AAFV3onhUFo8esiB-e8r4YVgwnYKldw-D5U';
 const bot = new TelegramBot(token, {polling: true});
@@ -11,9 +10,6 @@ const bot = new TelegramBot(token, {polling: true});
 const session = {};
 // File path for JSON data
 const dataFilePath = path.resolve(__dirname, './database/user_data.json');
-
-// File path for storing user data
-// const userDataFile = './database/user_data.json';
 
 const tennisTerms = require('./helper/tennisTerms');
 
@@ -54,13 +50,8 @@ bot.setMyCommands([
     {command: '/findcoach', description: 'Find a tennis coach'},
     {command: '/creategame', description: 'Create a tennis game'},
     {command: '/info', description: 'Info about me'},
+    {command: '/get_avatar', description: 'Get profile avatar'},
 ])
-    .then(() => {
-        console.log('Commands set successfully');
-    })
-    .catch(err => {
-        console.error('Error setting commands:', err);
-    });
 
 bot.onText(/\/learn_terms/, async (msg) => {
     const chatId = msg.chat.id;
@@ -126,22 +117,21 @@ bot.onText(/\/my_profile/, async (msg) => {
     const chatId = msg.chat.id;
     const userName = msg.chat.username || msg.chat.first_name || "Unknown User";
     const firstName = msg.chat.first_name;
-    // Check if phone number exists in session
+
+    // Check if the user's profile exists in the session
     if (session[chatId] && session[chatId].userPhone) {
         const userPhone = session[chatId].userPhone;
         bot.sendMessage(chatId,
             `Your Profile:\n\n
-            Username: ${userName}
-            Phone: ${userPhone}
-            First name: ${firstName}
-            `);
-    }
-    else {
-        // Request the phone number
+Username: ${userName}
+Phone: ${userPhone}
+First Name: ${firstName}`);
+    } else {
+        // Prompt the user to share their phone number
         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
             reply_markup: {
                 keyboard: [
-                    [{text: "Share Phone Number", request_contact: true}]
+                    [{ text: "Share Phone Number", request_contact: true }]
                 ],
                 one_time_keyboard: true,
             },
@@ -149,52 +139,23 @@ bot.onText(/\/my_profile/, async (msg) => {
     }
 });
 
-const processedUpdates = new Set(); // To store already processed update IDs
 
 bot.on("contact", (contactMsg) => {
     const chatId = contactMsg.chat.id;
     const userPhone = contactMsg.contact.phone_number;
     const firstName = contactMsg.contact.first_name;
 
-    // Load existing user data
-    // const userData = userList;
-    const userData = loadUserData();
+    // Save the data in the session
+    session[chatId] = {
+        userPhone,
+        firstName,
+    };
 
-    // Check if the phone number exists
-    const existingUser = userData.find((user) => user.phone === userPhone);
-    // const existingUser = userData.find((user) => user.chatId === chatId);
-
-    if (existingUser) {
-        // Return existing user data
-        bot.sendMessage(chatId, `Welcome back! Here is your profile data:\n\n
-Phone: ${existingUser.phone}
-First name: ${existingUser.first_name}
-NTRP level: ${existingUser.ntrp_level || 'Not set'}
-Gender: ${existingUser.gender || 'Not set'}
-Birthday: ${existingUser.birthday || 'Not set'}
-Region: ${existingUser.region || 'Not set'}
-        `);
-    } else {
-        // Create a new user object
-        const newUser = {
-            chatId,
-            phone: userPhone,
-            first_name: firstName,
-            ntrp_level: null, // Placeholder for future data
-            gender: null,
-            birthday: null,
-            region: null
-        };
-
-        // Save new user to JSON file
-        userData.push(newUser);
-        saveUserData(userData);
-
-        // Acknowledge and return profile
-        bot.sendMessage(chatId, `Your phone number has been saved. Welcome!\n\n
+    // Acknowledge the phone number and save the profile
+    bot.sendMessage(chatId,
+        `Thank you! Your phone number has been saved.\n\n
+Your Profile:\n\n
 Phone: ${userPhone}
-First name: ${firstName}
-NTRP level: null
-        `);
-    }
+First Name: ${firstName}`);
 });
+
