@@ -118,16 +118,20 @@ bot.onText(/\/my_profile/, async (msg) => {
     const userName = msg.chat.username || msg.chat.first_name || "Unknown User";
     const firstName = msg.chat.first_name;
 
-    // Check if the user's profile exists in the session
-    if (session[chatId] && session[chatId].userPhone) {
-        const userPhone = session[chatId].userPhone;
-        bot.sendMessage(chatId,
-            `Your Profile:\n\n
+    // Load user data from JSON file
+    const userData = loadUserData();
+
+    // Check if the user's profile exists in the JSON file
+    const existingUser = userData.find(user => user.chatId === chatId);
+
+    if (existingUser) {
+        const { phone, firstName: storedFirstName } = existingUser;
+        bot.sendMessage(chatId, `Your Profile:\n\n
 Username: ${userName}
-Phone: ${userPhone}
-First Name: ${firstName}`);
+Phone: ${phone}
+First Name: ${storedFirstName || firstName}`);
     } else {
-        // Prompt the user to share their phone number
+        // If no user found, prompt to share the phone number
         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
             reply_markup: {
                 keyboard: [
@@ -139,23 +143,50 @@ First Name: ${firstName}`);
     }
 });
 
-
+// Telegram bot handler
 bot.on("contact", (contactMsg) => {
     const chatId = contactMsg.chat.id;
     const userPhone = contactMsg.contact.phone_number;
     const firstName = contactMsg.contact.first_name;
 
-    // Save the data in the session
-    session[chatId] = {
-        userPhone,
-        firstName,
-    };
+    // Load existing user data
+    const userData = loadUserData();
 
-    // Acknowledge the phone number and save the profile
-    bot.sendMessage(chatId,
-        `Thank you! Your phone number has been saved.\n\n
-Your Profile:\n\n
+    // Check if the phone number exists
+    const existingUser = userData.find((user) => user.phone === userPhone);
+
+    if (existingUser) {
+        // Return existing user data
+        bot.sendMessage(chatId, `Welcome back! Here is your profile data:\n\n
+Phone: ${existingUser.phone}
+First name: ${existingUser.first_name}
+NTRP level: ${existingUser.ntrp_level || 'Not set'}
+Gender: ${existingUser.gender || 'Not set'}
+Birthday: ${existingUser.birthday || 'Not set'}
+Region: ${existingUser.region || 'Not set'}
+        `);
+    } else {
+        // Create a new user object
+        const newUser = {
+            chatId,
+            phone: userPhone,
+            first_name: firstName,
+            ntrp_level: null, // Placeholder for future data
+            gender: null,
+            birthday: null,
+            region: null
+        };
+
+        // Save new user to JSON file
+        userData.push(newUser);
+        saveUserData(userData);
+
+        // Acknowledge and return profile
+        bot.sendMessage(chatId, `Your phone number has been saved. Welcome!\n\n
 Phone: ${userPhone}
-First Name: ${firstName}`);
+First name: ${firstName}
+NTRP level: null
+        `);
+    }
 });
 
