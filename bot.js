@@ -150,7 +150,7 @@ bot.on("contact", (contactMsg) => {
     const userPhone = contactMsg.contact.phone_number;
     const firstName = contactMsg.contact.first_name;
 
-    // Load existing user data
+    // Load existing user datas
     const userData = loadUserData();
 
     // Check if the phone number exists
