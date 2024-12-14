@@ -124,15 +124,16 @@ bot.onText(/\/my_profile/, async (msg) => {
     // Check if the user's profile exists in the JSON file
     const existingUser = userData.find(user => user.chatId === chatId);
 
-    if (existingUser) {
+    // Функция для отправки профиля пользователя
+    async function sendUserProfile(bot, chatId, existingUser, userName, firstName) {
         const { phone, firstName: storedFirstName } = existingUser;
-        bot.sendMessage(chatId, `Your Profile:\n\n
+        await bot.sendMessage(chatId, `Your Profile:\n\n
 Username: ${userName}
 Phone: ${phone}
 First Name: ${storedFirstName || firstName}`);
     }
-    else {
-        // If no user found, prompt to share the phone number
+
+    async function requestPhoneNumber(bot, chatId) {
         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
             reply_markup: {
                 keyboard: [
@@ -142,6 +143,31 @@ First Name: ${storedFirstName || firstName}`);
             },
         });
     }
+
+    if (existingUser) {
+        await sendUserProfile(bot, chatId, existingUser, userName, firstName);
+    } else {
+        await requestPhoneNumber(bot, chatId);
+    }
+
+//     if (existingUser) {
+//         const { phone, firstName: storedFirstName } = existingUser;
+//         await bot.sendMessage(chatId, `Your Profile:\n\n
+// Username: ${userName}
+// Phone: ${phone}
+// First Name: ${storedFirstName || firstName}`);
+//     }
+//     else {
+//         // If no user found, prompt to share the phone number
+//         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
+//             reply_markup: {
+//                 keyboard: [
+//                     [{ text: "Share Phone Number", request_contact: true }]
+//                 ],
+//                 one_time_keyboard: true,
+//             },
+//         });
+//     }
 });
 
 // Telegram bot handler
