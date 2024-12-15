@@ -1,17 +1,18 @@
 const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
+const jwt = require("jsonwebtoken");
 
 
 // Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
 const token = '7323849851:AAFV3onhUFo8esiB-e8r4YVgwnYKldw-D5U';
 const bot = new TelegramBot(token, {polling: true});
-// In-memory session store
-const session = {};
+const MY_CHAT_ID = 289282054;
 // File path for JSON data
 const dataFilePath = path.resolve(__dirname, './database/user_data.json');
 
 const tennisTerms = require('./helper/tennisTerms');
+const API_URI = `http://localhost:3000`;
 
 
 function loadUserData() {
@@ -27,6 +28,7 @@ function loadUserData() {
         return [];
     }
 }
+
 
 
 function saveUserData(data) {
@@ -112,62 +114,122 @@ bot.onText(/\/start/, async (msg) => {
     await bot.sendMessage(chatId, welcomeMessage);
 });
 
-// Handler for /my_profile command
+
 bot.onText(/\/my_profile/, async (msg) => {
     const chatId = msg.chat.id;
     const userName = msg.chat.username || msg.chat.first_name || "Unknown User";
-    const firstName = msg.chat.first_name;
 
-    // Load user data from JSON file
-    const userData = loadUserData();
 
-    // Check if the user's profile exists in the JSON file
-    const existingUser = userData.find(user => user.chatId === chatId);
+
+    try {
+        const profileDto = await getUser(chatId);
+        console.log('Token:', profileDto);
+        if (profileDto) {
+            await bot.sendMessage(chatId, `token=${profileDto}`);
+        } else {
+            await bot.sendMessage(chatId, "Could not retrieve profile information.");
+        }
+    } catch (e) {
+        // Error handling
+        console.error('Error:', e.message);
+        await bot.sendMessage(chatId, "An error occurred while fetching your profile.");
+    }
+
+
+
+    async function getUser(chatId) {
+        try {
+            if (!chatId) {
+                throw new Error('Invalid chatId');
+            }
+
+            const response = await fetch(`${API_URI}/get-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ chatId: chatId })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Unknown error');
+            }
+
+            const data = await response.json();
+            console.log('Profile data:', data);
+            return data.chatId;  // or any other part of the response you need
+
+        } catch (e) {
+            console.error('Error in getUser:', e.message);
+            return null;  // Ensure we return null or a default value in case of an error
+        }
+    }
+
+    async function replyToken(bot, chatId, authToken, userName) {
+        const message = `Приветствую, ${userName}! Мы нашли вас в базе данных. Вот ваш токен: ${authToken}`;
+
+        try {
+            // Отправка сообщения через Telegram-бота
+            await bot.sendMessage(chatId, message);
+            console.log('Сообщение успешно отправлено:', message);
+        } catch (e) {
+            console.error('Ошибка при отправке сообщения:', e.message);
+        }
+    }
+
+
+
+
+
+
+    function objectToBase64(user) {
+        const jsonString = JSON.stringify(user); // Преобразование объекта в строку JSON
+        return Buffer.from(jsonString).toString('base64'); // Кодирование строки в Base64
+    }
 
     // Функция для отправки профиля пользователя
     async function sendUserProfile(bot, chatId, existingUser, userName, firstName) {
-        const { phone, firstName: storedFirstName } = existingUser;
-        await bot.sendMessage(chatId, `Your Profile:\n\n
-Username: ${userName}
-Phone: ${phone}
-First Name: ${storedFirstName || firstName}`);
+        const {phone, firstName: storedFirstName, ntrp_level, gender, region, birthday} = existingUser;
+        const message = `Ваш профиль:\n
+            Имя пользователя: ${userName}
+            Номер телефона: ${phone}
+            Ntrp уровень: ${ntrp_level ? ntrp_level : `Не установлено`}
+            Пол: ${gender ? gender : `Не установлено`}
+            Регион: ${region ? region : `Не установлено`}
+            Дата рождения: ${birthday ? birthday : `Не установлено`}
+            Ваше имя: ${storedFirstName || firstName}
+            Токен: ${objectToBase64(existingUser)}
+            Url: {\`https://tennismate.netlify.app/profile?token=${objectToBase64(existingUser)}\`}
+            `
+        await bot.sendMessage(chatId, message, {
+            parse_mode: "Markdown",
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "Просмотр",
+                            web_app: {url: `https://tennismate.netlify.app/profile?token=${objectToBase64(existingUser)}`}
+                        },
+                    ],
+                ],
+            },
+        });
     }
 
     async function requestPhoneNumber(bot, chatId) {
         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
             reply_markup: {
                 keyboard: [
-                    [{ text: "Share Phone Number", request_contact: true }]
+                    [{text: "Share Phone Number", request_contact: true}]
                 ],
                 one_time_keyboard: true,
             },
         });
     }
 
-    if (existingUser) {
-        await sendUserProfile(bot, chatId, existingUser, userName, firstName);
-    } else {
-        await requestPhoneNumber(bot, chatId);
-    }
 
-//     if (existingUser) {
-//         const { phone, firstName: storedFirstName } = existingUser;
-//         await bot.sendMessage(chatId, `Your Profile:\n\n
-// Username: ${userName}
-// Phone: ${phone}
-// First Name: ${storedFirstName || firstName}`);
-//     }
-//     else {
-//         // If no user found, prompt to share the phone number
-//         await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
-//             reply_markup: {
-//                 keyboard: [
-//                     [{ text: "Share Phone Number", request_contact: true }]
-//                 ],
-//                 one_time_keyboard: true,
-//             },
-//         });
-//     }
+
 });
 
 // Telegram bot handler
@@ -177,7 +239,10 @@ bot.on("contact", (contactMsg) => {
     const firstName = contactMsg.contact.first_name;
 
     // Load existing user datas
+    // TODO в будущем проверять номер телефона или chatId через бэк запрос
+    //  если существует юзер тогда бэк возвращает мне токен для дальнейших действий
     const userData = loadUserData();
+
 
     // Check if the phone number exists
     const existingUser = userData.find((user) => user.phone === userPhone);
