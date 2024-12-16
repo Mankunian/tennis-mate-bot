@@ -2,13 +2,12 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const path = require('path');
 const jwt = require("jsonwebtoken");
+const axios = require('axios');
 
 
-// Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
 const token = '7323849851:AAFV3onhUFo8esiB-e8r4YVgwnYKldw-D5U';
 const bot = new TelegramBot(token, {polling: true});
 const MY_CHAT_ID = 289282054;
-// File path for JSON data
 const dataFilePath = path.resolve(__dirname, './database/user_data.json');
 
 const tennisTerms = require('./helper/tennisTerms');
@@ -122,12 +121,11 @@ bot.onText(/\/my_profile/, async (msg) => {
 
 
     try {
-        const profileDto = await getUser(chatId);
-        console.log('Token:', profileDto);
-        if (profileDto) {
-            await bot.sendMessage(chatId, `token=${profileDto}`);
+        const userData = await getUser(chatId);
+        if (userData) {
+            await bot.sendMessage(chatId, `Ваш профиль: ${userData.chatId}`);
         } else {
-            await bot.sendMessage(chatId, "Could not retrieve profile information.");
+            await bot.sendMessage(chatId, 'Произошла ошибка при получении данных пользователя.');
         }
     } catch (e) {
         // Error handling
@@ -143,26 +141,19 @@ bot.onText(/\/my_profile/, async (msg) => {
                 throw new Error('Invalid chatId');
             }
 
-            const response = await fetch(`${API_URI}/get-user`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ chatId: chatId })
+            // HTTP POST-запрос с помощью axios
+            const response = await axios.post(`${API_URI}/get-user`, {
+                chatId: chatId // Передача данных в теле запроса
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Unknown error');
-            }
-
-            const data = await response.json();
+            // Получение данных из ответа
+            const data = response.data;
             console.log('Profile data:', data);
-            return data.chatId;  // or any other part of the response you need
+            return data; // Возвращаем данные
 
         } catch (e) {
             console.error('Error in getUser:', e.message);
-            return null;  // Ensure we return null or a default value in case of an error
+            return null; // Возвращаем null при ошибке
         }
     }
 
