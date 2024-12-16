@@ -119,7 +119,27 @@ bot.onText(/\/my_profile/, async (msg) => {
     try {
         const userData = await getUser(chatId);
         if (userData) {
-            await bot.sendMessage(chatId, `Ваш профиль: \nChatId: ${userData.chatId}  \nPhone: ${userData.phone} \nFirst name: ${userData.first_name}`);
+            // await bot.sendMessage(chatId, );
+            const message = `Ваш профиль: \n
+            ChatId: ${userData.chatId}  \n
+            Phone: ${userData.phone} \n
+            First name: ${userData.first_name}
+            Url: https://tennismate.netlify.app/profile/${chatId}
+            `;
+
+            await bot.sendMessage(chatId, message, {
+                parse_mode: "Markdown",
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: "Просмотр",
+                                web_app: {url: `https://tennismate.netlify.app/profile/${chatId}`}
+                            },
+                        ],
+                    ],
+                },
+            });
         } else {
             await requestPhoneNumber(bot, chatId);
         }
@@ -151,42 +171,6 @@ bot.onText(/\/my_profile/, async (msg) => {
             console.error(e.status)
             if (e.status === 404) return null;
         }
-    }
-
-
-    function objectToBase64(user) {
-        const jsonString = JSON.stringify(user); // Преобразование объекта в строку JSON
-        return Buffer.from(jsonString).toString('base64'); // Кодирование строки в Base64
-    }
-
-
-    // Функция для отправки профиля пользователя
-    async function sendUserProfile(bot, chatId, existingUser, userName, firstName) {
-        const {phone, firstName: storedFirstName, ntrp_level, gender, region, birthday} = existingUser;
-        const message = `Ваш профиль:\n
-            Имя пользователя: ${userName}
-            Номер телефона: ${phone}
-            Ntrp уровень: ${ntrp_level ? ntrp_level : `Не установлено`}
-            Пол: ${gender ? gender : `Не установлено`}
-            Регион: ${region ? region : `Не установлено`}
-            Дата рождения: ${birthday ? birthday : `Не установлено`}
-            Ваше имя: ${storedFirstName || firstName}
-            Токен: ${objectToBase64(existingUser)}
-            Url: {\`https://tennismate.netlify.app/profile?token=${objectToBase64(existingUser)}\`}
-            `
-        await bot.sendMessage(chatId, message, {
-            parse_mode: "Markdown",
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: "Просмотр",
-                            web_app: {url: `https://tennismate.netlify.app/profile?token=${objectToBase64(existingUser)}`}
-                        },
-                    ],
-                ],
-            },
-        });
     }
 
 
