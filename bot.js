@@ -46,11 +46,11 @@ bot.setMyDescription("Этот бот поможет вам найти тенн�
 // Set the list of commands
 bot.setMyCommands([
     {command: '/start', description: 'Start interacting with the bot'},
-    {command: '/findpartner', description: 'Find a tennis partner'},
-    {command: '/findcoach', description: 'Find a tennis coach'},
-    {command: '/creategame', description: 'Create a tennis game'},
-    {command: '/info', description: 'Info about me'},
-    {command: '/get_avatar', description: 'Get profile avatar'},
+    {command: '/find_partner', description: 'Найти партнера'},
+    {command: '/find_coach', description: 'Найти тренера'},
+    {command: '/create_game', description: 'Create a tennis game'},
+    {command: '/buy_sell', description: 'Купить/продать оборудование  '},
+    {command: '/learn_terms', description: 'Изучить теннисные термины'},
 ])
 
 bot.onText(/\/learn_terms/, async (msg) => {
