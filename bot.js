@@ -29,7 +29,6 @@ function loadUserData() {
 }
 
 
-
 function saveUserData(data) {
     try {
         fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2), 'utf-8');
@@ -113,26 +112,22 @@ bot.onText(/\/start/, async (msg) => {
     await bot.sendMessage(chatId, welcomeMessage);
 });
 
-
 bot.onText(/\/my_profile/, async (msg) => {
     const chatId = msg.chat.id;
     const userName = msg.chat.username || msg.chat.first_name || "Unknown User";
 
-
-
     try {
         const userData = await getUser(chatId);
         if (userData) {
-            await bot.sendMessage(chatId, `Ваш профиль: ${userData.chatId}`);
+            await bot.sendMessage(chatId, `Ваш профиль: \nChatId: ${userData.chatId}  \nPhone: ${userData.phone} \nFirst name: ${userData.first_name}`);
         } else {
-            await bot.sendMessage(chatId, 'Произошла ошибка при получении данных пользователя.');
+            await requestPhoneNumber(bot, chatId);
         }
     } catch (e) {
         // Error handling
         console.error('Error:', e.message);
         await bot.sendMessage(chatId, "An error occurred while fetching your profile.");
     }
-
 
 
     async function getUser(chatId) {
@@ -153,31 +148,17 @@ bot.onText(/\/my_profile/, async (msg) => {
 
         } catch (e) {
             console.error('Error in getUser:', e.message);
-            return null; // Возвращаем null при ошибке
+            console.error(e.status)
+            if (e.status === 404) return null;
         }
     }
-
-    async function replyToken(bot, chatId, authToken, userName) {
-        const message = `Приветствую, ${userName}! Мы нашли вас в базе данных. Вот ваш токен: ${authToken}`;
-
-        try {
-            // Отправка сообщения через Telegram-бота
-            await bot.sendMessage(chatId, message);
-            console.log('Сообщение успешно отправлено:', message);
-        } catch (e) {
-            console.error('Ошибка при отправке сообщения:', e.message);
-        }
-    }
-
-
-
-
 
 
     function objectToBase64(user) {
         const jsonString = JSON.stringify(user); // Преобразование объекта в строку JSON
         return Buffer.from(jsonString).toString('base64'); // Кодирование строки в Base64
     }
+
 
     // Функция для отправки профиля пользователя
     async function sendUserProfile(bot, chatId, existingUser, userName, firstName) {
@@ -208,68 +189,88 @@ bot.onText(/\/my_profile/, async (msg) => {
         });
     }
 
-    async function requestPhoneNumber(bot, chatId) {
-        await bot.sendMessage(chatId, "Please share your phone number using the button below.", {
-            reply_markup: {
-                keyboard: [
-                    [{text: "Share Phone Number", request_contact: true}]
-                ],
-                one_time_keyboard: true,
-            },
-        });
-    }
 
+    // Функция для запроса номера телефона у пользователя
+    async function requestPhoneNumber(bot, chatId) {
+        await bot.sendMessage(
+            chatId,
+            `🔍 *Вы не зарегистрированы в нашей системе.*\n\n` +
+            `📱 Чтобы продолжить пользоваться нашим сервисом, пожалуйста, отправьте ваш номер телефона, нажав на кнопку ниже.`
+            , {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    keyboard: [
+                        [{text: '📞 Поделиться номером телефона', request_contact: true}]
+                    ],
+                    resize_keyboard: true,
+                    one_time_keyboard: true
+                }
+            }
+        );
+    }
 
 
 });
 
 // Telegram bot handler
-bot.on("contact", (contactMsg) => {
+bot.on("contact", async (contactMsg) => {
     const chatId = contactMsg.chat.id;
     const userPhone = contactMsg.contact.phone_number;
     const firstName = contactMsg.contact.first_name;
 
-    // Load existing user datas
-    // TODO в будущем проверять номер телефона или chatId через бэк запрос
-    //  если существует юзер тогда бэк возвращает мне токен для дальнейших действий
-    const userData = loadUserData();
+    const newUser = {
+        chatId,
+        phone: userPhone,
+        first_name: firstName,
+        ntrp_level: null,
+        gender: null,
+        birthday: null,
+        region: null
+    };
+
+    createUser(newUser)
+        .then(async (response) => {
+            const {first_name, phone, ntrp_level, gender, region, birthday} = response.user;
+            const message = `Ваш профиль:\n
+            Имя пользователя: ${first_name}
+            Номер телефона: ${phone}
+            Ntrp уровень: ${ntrp_level ? ntrp_level : `Не установлено`}
+            Пол: ${gender ? gender : `Не установлено`}
+            Регион: ${region ? region : `Не установлено`}
+            Дата рождения: ${birthday ? birthday : `Не установлено`}`;
 
 
-    // Check if the phone number exists
-    const existingUser = userData.find((user) => user.phone === userPhone);
+            await bot.sendMessage(chatId, message, {
+                parse_mode: "Markdown",
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: "Просмотр",
+                                web_app: {url: `https://tennismate.netlify.app/profile/${chatId}`}
+                            },
+                        ],
+                    ],
+                },
+            });
 
-    if (existingUser) {
-        // Return existing user data
-        bot.sendMessage(chatId, `Welcome back! Here is your profile data:\n\n
-Phone: ${existingUser.phone}
-First name: ${existingUser.first_name}
-NTRP level: ${existingUser.ntrp_level || 'Not set'}
-Gender: ${existingUser.gender || 'Not set'}
-Birthday: ${existingUser.birthday || 'Not set'}
-Region: ${existingUser.region || 'Not set'}
-        `);
-    } else {
-        // Create a new user object
-        const newUser = {
-            chatId,
-            phone: userPhone,
-            first_name: firstName,
-            ntrp_level: null, // Placeholder for future data
-            gender: null,
-            birthday: null,
-            region: null
-        };
+        })
+        .catch(e => {
+            console.log(e)
+        })
 
-        // Save new user to JSON file
-        userData.push(newUser);
-        saveUserData(userData);
 
-        // Acknowledge and return profile
-        bot.sendMessage(chatId, `Your phone number has been saved. Welcome!\n\n
-Phone: ${userPhone}
-First name: ${firstName}
-NTRP level: null
-        `);
+    async function createUser(newUser) {
+        try {
+            const response = await axios.post(`${API_URI}/create-user`, newUser);
+            console.log('Пользователь успешно создан:', response.data);
+            return response.data; // Возвращаем данные из ответа
+        } catch (error) {
+            console.error('Ошибка при регистрации пользователя:', error.response?.data?.error || error.message);
+            throw error;
+        }
     }
+
+
 });
 
