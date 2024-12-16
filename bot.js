@@ -121,12 +121,12 @@ bot.onText(/\/my_profile/, async (msg) => {
         if (userData) {
             // await bot.sendMessage(chatId, );
             const message = `Ваш профиль: \n
-            ChatId: ${userData.chatId}
-            Phone: ${userData.phone}
-            First name: ${userData.first_name}
-            Ntrp: ${userData.ntrp_level}
-            Region: ${userData.region}
-            Gender: ${userData.gender}
+            Id чата: ${userData.chatId}
+            Номер телеграм: ${userData.phone}
+            Ваше имя: ${userData.first_name}
+            Уровень NTRP: ${userData?.ntrpLevel.level}
+            Регион: ${userData?.region.name}
+            Пол: ${userData?.gender.name}
             Url: https://tennismate.netlify.app/profile/${chatId}
             `;
 
