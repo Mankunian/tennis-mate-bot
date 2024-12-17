@@ -12,6 +12,7 @@ const dataFilePath = path.resolve(__dirname, './database/user_data.json');
 
 const tennisTerms = require('./helper/tennisTerms');
 const API_URI = `http://localhost:3000`;
+const MINI_APP_URI = `https://tennismate.netlify.app`;
 
 
 function loadUserData() {
@@ -75,7 +76,7 @@ ${termsMessage}
                 [
                     {
                         text: "Просмотреть больше",
-                        web_app: {url: "https://tennismate.netlify.app/terms"}
+                        web_app: {url: `${MINI_APP_URI}/terms`}
                     },
                 ],
             ],
@@ -127,7 +128,7 @@ bot.onText(/\/my_profile/, async (msg) => {
             Уровень NTRP: ${userData?.ntrpLevel.level}
             Регион: ${userData?.region.name}
             Пол: ${userData?.gender.name}
-            Url: https://tennismate.netlify.app/profile/${chatId}
+            Url: ${MINI_APP_URI}/profile/${chatId}
             `;
 
             await bot.sendMessage(chatId, message, {
@@ -137,7 +138,7 @@ bot.onText(/\/my_profile/, async (msg) => {
                         [
                             {
                                 text: "Просмотр",
-                                web_app: {url: `https://tennismate.netlify.app/profile/${chatId}`}
+                                web_app: {url: `${MINI_APP_URI}/profile/${chatId}`}
                             },
                         ],
                     ],
@@ -234,7 +235,7 @@ bot.on("contact", async (contactMsg) => {
                         [
                             {
                                 text: "Просмотр",
-                                web_app: {url: `https://tennismate.netlify.app/profile/${chatId}`}
+                                web_app: {url: `${MINI_APP_URI}/profile/${chatId}`}
                             },
                         ],
                     ],
@@ -259,5 +260,28 @@ bot.on("contact", async (contactMsg) => {
     }
 
 
+});
+
+
+// Создание игры
+bot.onText(/\/create_game/, async (ctx) => {
+    const chatId = ctx.chat.id;
+
+    // Ссылка на мини-приложение
+    const miniAppUrl = `https://your-miniapp-url.com?userId=${ctx.from.id}`;
+
+    // Кнопка для запуска мини-приложения
+    await ctx.reply('Для создания игры заполните форму в мини-приложении:', {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    {
+                        text: 'Открыть форму',
+                        url: miniAppUrl,
+                    },
+                ],
+            ],
+        },
+    });
 });
 
